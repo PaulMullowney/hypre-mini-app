@@ -379,13 +379,15 @@ void HypreSystem::destroy_system() {
   if (precond_)
     precondDestroyPtr_(precond_);
 
-  if (d_vector_indices_) hypre_TFree(d_vector_indices_, HYPRE_MEMORY_DEVICE);
-  if (d_vector_vals_)    hypre_TFree(d_vector_vals_, HYPRE_MEMORY_DEVICE);
-  if (d_rows_)           hypre_TFree(d_rows_, HYPRE_MEMORY_DEVICE);
-  if (d_cols_)           hypre_TFree(d_cols_, HYPRE_MEMORY_DEVICE);
-  if (d_offd_rows_)      hypre_TFree(d_offd_rows_, HYPRE_MEMORY_DEVICE);
-  if (d_offd_cols_)      hypre_TFree(d_offd_cols_, HYPRE_MEMORY_DEVICE);
-  if (d_vals_)           hypre_TFree(d_vals_, HYPRE_MEMORY_DEVICE);
+  if (d_vector_indices_)        hypre_TFree(d_vector_indices_, HYPRE_MEMORY_DEVICE);
+  if (d_vector_vals_)           hypre_TFree(d_vector_vals_, HYPRE_MEMORY_DEVICE);
+  if (d_vector_indices_shared_) hypre_TFree(d_vector_indices_shared_, HYPRE_MEMORY_DEVICE);
+  if (d_vector_vals_shared_)    hypre_TFree(d_vector_vals_shared_, HYPRE_MEMORY_DEVICE);
+  if (d_rows_)                  hypre_TFree(d_rows_, HYPRE_MEMORY_DEVICE);
+  if (d_cols_)                  hypre_TFree(d_cols_, HYPRE_MEMORY_DEVICE);
+  if (d_offd_rows_)             hypre_TFree(d_offd_rows_, HYPRE_MEMORY_DEVICE);
+  if (d_offd_cols_)             hypre_TFree(d_offd_cols_, HYPRE_MEMORY_DEVICE);
+  if (d_vals_)                  hypre_TFree(d_vals_, HYPRE_MEMORY_DEVICE);
 }
 
 void HypreSystem::init_row_decomposition() {
@@ -490,13 +492,15 @@ void HypreSystem::assemble_system() {
   MPI_Barrier(comm_);
 
   /* delete unneeded memory */
-  if (d_vector_indices_) hypre_TFree(d_vector_indices_, HYPRE_MEMORY_DEVICE);
-  if (d_vector_vals_)    hypre_TFree(d_vector_vals_, HYPRE_MEMORY_DEVICE);
-  if (d_rows_)           hypre_TFree(d_rows_, HYPRE_MEMORY_DEVICE);
-  if (d_cols_)           hypre_TFree(d_cols_, HYPRE_MEMORY_DEVICE);
-  if (d_offd_rows_)      hypre_TFree(d_offd_rows_, HYPRE_MEMORY_DEVICE);
-  if (d_offd_cols_)      hypre_TFree(d_offd_cols_, HYPRE_MEMORY_DEVICE);
-  if (d_vals_)           hypre_TFree(d_vals_, HYPRE_MEMORY_DEVICE);
+  if (d_vector_indices_)        hypre_TFree(d_vector_indices_, HYPRE_MEMORY_DEVICE);
+  if (d_vector_vals_)           hypre_TFree(d_vector_vals_, HYPRE_MEMORY_DEVICE);
+  if (d_vector_indices_shared_) hypre_TFree(d_vector_indices_shared_, HYPRE_MEMORY_DEVICE);
+  if (d_vector_vals_shared_)    hypre_TFree(d_vector_vals_shared_, HYPRE_MEMORY_DEVICE);
+  if (d_rows_)                  hypre_TFree(d_rows_, HYPRE_MEMORY_DEVICE);
+  if (d_cols_)                  hypre_TFree(d_cols_, HYPRE_MEMORY_DEVICE);
+  if (d_offd_rows_)             hypre_TFree(d_offd_rows_, HYPRE_MEMORY_DEVICE);
+  if (d_offd_cols_)             hypre_TFree(d_offd_cols_, HYPRE_MEMORY_DEVICE);
+  if (d_vals_)                  hypre_TFree(d_vals_, HYPRE_MEMORY_DEVICE);
 
   checkMemory();
 }
@@ -844,19 +848,41 @@ void HypreSystem::hypre_vector_set_values(std::vector<HYPRE_IJVector> &vec,
 
 #if defined(HYPRE_USING_GPU)
   size_t N = vector_values_.size();
+  size_t Nshared = vector_values_shared_.size();
 
 #if defined(HYPRE_MIXEDINT) || defined(HYPRE_BIGINT)
   d_vector_indices_ = hypre_TAlloc(HYPRE_BigInt, N, HYPRE_MEMORY_DEVICE);
   hypre_TMemcpy(d_vector_indices_, vector_indices_.data(), HYPRE_BigInt, N,
                 HYPRE_MEMORY_DEVICE, HYPRE_MEMORY_HOST);
+
+  if (Nshared)
+  {
+	  d_vector_indices_shared_ = hypre_TAlloc(HYPRE_BigInt, Nshared, HYPRE_MEMORY_DEVICE);
+	  hypre_TMemcpy(d_vector_indices_shared_, vector_indices_shared_.data(), HYPRE_BigInt, Nshared,
+						 HYPRE_MEMORY_DEVICE, HYPRE_MEMORY_HOST);
+  }
 #else
   d_vector_indices_ = hypre_TAlloc(HYPRE_Int, N, HYPRE_MEMORY_DEVICE);
   hypre_TMemcpy(d_vector_indices_, vector_indices_.data(), HYPRE_Int, N,
                 HYPRE_MEMORY_DEVICE, HYPRE_MEMORY_HOST);
+
+  if (Nshared)
+  {
+	  d_vector_indices_shared_ = hypre_TAlloc(HYPRE_Int, Nshared, HYPRE_MEMORY_DEVICE);
+	  hypre_TMemcpy(d_vector_indices_shared_, vector_indices_shared_.data(), HYPRE_Int, Nshared,
+						 HYPRE_MEMORY_DEVICE, HYPRE_MEMORY_HOST);
+  }
 #endif
   d_vector_vals_ = hypre_TAlloc(HYPRE_Complex, N, HYPRE_MEMORY_DEVICE);
   hypre_TMemcpy(d_vector_vals_, vector_values_.data(), HYPRE_Complex, N,
                 HYPRE_MEMORY_DEVICE, HYPRE_MEMORY_HOST);
+
+  if (Nshared)
+  {
+	  d_vector_vals_shared_ = hypre_TAlloc(HYPRE_Complex, Nshared, HYPRE_MEMORY_DEVICE);
+	  hypre_TMemcpy(d_vector_vals_shared_, vector_values_shared_.data(), HYPRE_Complex, Nshared,
+						 HYPRE_MEMORY_DEVICE, HYPRE_MEMORY_HOST);
+  }
 
   /* Use the fast path. This probably doesn't work with multivectors yet */
   if (iproc_ == 0)
@@ -873,9 +899,21 @@ void HypreSystem::hypre_vector_set_values(std::vector<HYPRE_IJVector> &vec,
 
   HYPRE_IJVectorSetValues(v, iUpper_ - iLower_ + 1, d_vector_indices_,
                           d_vector_vals_);
+
+  if (Nshared)
+  {
+	  HYPRE_IJVectorAddToValues(v, Nshared, d_vector_indices_shared_,
+                               d_vector_vals_shared_);
+  }
 #else
   HYPRE_IJVectorSetValues(v, iUpper_ - iLower_ + 1, vector_indices_.data(),
                           vector_values_.data());
+
+  if (Nshared)
+  {
+	  HYPRE_IJVectorAddToValues(v, Nshared, vector_indices_shared_.data(),
+										 vector_values_shared_.data());
+  }
 #endif
 
   MPI_Barrier(comm_);
@@ -1670,6 +1708,8 @@ void HypreSystem::build_mm_vector(std::vector<std::string> &mmfiles,
   MPI_Barrier(comm_);
   auto start = std::chrono::system_clock::now();
 
+  YAML::Node node = inpfile_["solver_settings"];
+
   for (int j = 0; j < numComps_; ++j) {
     std::string mmfile = mmfiles[j];
 	 if (iproc_ == 0)
@@ -1712,39 +1752,72 @@ void HypreSystem::build_mm_vector(std::vector<std::string> &mmfiles,
     bool foundHeader=false;
     vector_indices_.resize(0);
     vector_values_.resize(0);
+    vector_indices_shared_.resize(0);
+    vector_values_shared_.resize(0);
 
     while (rsize<size)
     {
-      found = all_lines.find('\n', pos+1);
-      int64_t len = found-pos;
-      rsize+=len;
-      line = all_lines.substr(pos+1, len);
-      pos=found;
-      if (line.find("%",0)==0)
-      {
-	foundHeader=true;
-	continue;
-      }
-      if (foundHeader)
-      {
-	foundHeader=false;
-	continue;
-      }
-      if (i >= iLower_ && i <= iUpper_) {
-	sscanf(line.c_str(), "%lf", &value);
-	vector_values_.push_back(value);
+		 found = all_lines.find('\n', pos+1);
+		 int64_t len = found-pos;
+		 rsize+=len;
+		 line = all_lines.substr(pos+1, len);
+		 pos=found;
+		 if (line.find("%",0)==0)
+		 {
+			 foundHeader=true;
+			 continue;
+		 }
+		 if (foundHeader)
+		 {
+			 foundHeader=false;
+			 continue;
+		 }
+		 if (get_optional(node, "test_multivector_assemble", 0)) {
+			 if (i%nproc_==iproc_) {
+				 if (i >= iLower_ && i <= iUpper_) {
+					 sscanf(line.c_str(), "%lf", &value);
+					 vector_values_.push_back(value);
 #if defined(HYPRE_MIXEDINT) || defined(HYPRE_BIGINT)
-	vector_indices_.push_back((HYPRE_BigInt)i);
+					 vector_indices_.push_back((HYPRE_BigInt)i);
 #else
-	vector_indices_.push_back(i);
+					 vector_indices_.push_back(i);
 #endif
-      }
-      i++;
+				 } else {
+					 sscanf(line.c_str(), "%lf", &value);
+					 vector_values_shared_.push_back(value);
+#if defined(HYPRE_MIXEDINT) || defined(HYPRE_BIGINT)
+					 vector_indices_shared_.push_back((HYPRE_BigInt)i);
+#else
+					 vector_indices_shared_.push_back(i);
+#endif
+				 }
+			 } else {
+				 if (i >= iLower_ && i <= iUpper_) {
+					 vector_values_.push_back(0.0);
+#if defined(HYPRE_MIXEDINT) || defined(HYPRE_BIGINT)
+					 vector_indices_.push_back((HYPRE_BigInt)i);
+#else
+					 vector_indices_.push_back(i);
+#endif
+				 }
+			 }
+		 } else {
+			 if (i >= iLower_ && i <= iUpper_) {
+				 sscanf(line.c_str(), "%lf", &value);
+				 vector_values_.push_back(value);
+#if defined(HYPRE_MIXEDINT) || defined(HYPRE_BIGINT)
+				 vector_indices_.push_back((HYPRE_BigInt)i);
+#else
+				 vector_indices_.push_back(i);
+#endif
+			 }
+		 }
+		 i++;
     }
-    
+
     int unmap_result = munmap(f, size);
     close(fd);
-    
+
     /* build the vector */
     hypre_vector_set_values(vec, j);
   }

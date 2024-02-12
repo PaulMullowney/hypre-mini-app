@@ -168,6 +168,9 @@ private:
   std::vector<HYPRE_BigInt> vector_indices_;
   HYPRE_BigInt *d_vector_indices_=NULL;
 
+  std::vector<HYPRE_BigInt> vector_indices_shared_;
+  HYPRE_BigInt *d_vector_indices_shared_=NULL;
+
   //! Global number of rows in the linear system
   HYPRE_BigInt totalRows_{0};
 
@@ -190,6 +193,9 @@ private:
   std::vector<HYPRE_Int> vector_indices_;
   HYPRE_Int *d_vector_indices_=NULL;
 
+  std::vector<HYPRE_Int> vector_indices_shared_;
+  HYPRE_Int *d_vector_indices_shared_=NULL;
+
   //! Global number of rows in the linear system
   HYPRE_Int totalRows_{0};
 
@@ -209,6 +215,9 @@ private:
 
   std::vector<double> vector_values_;
   HYPRE_Complex *d_vector_vals_=NULL;
+
+  std::vector<double> vector_values_shared_;
+  HYPRE_Complex *d_vector_vals_shared_=NULL;
 
   //! Timers
   std::vector<std::pair<std::string, double>> timers_;
